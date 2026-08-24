@@ -504,7 +504,10 @@ MonoBehaviour:
   windowAnchor: {fileID: 0}
   windowAhead: 120
   windowBehind: 40
-  passByClips: []
+  passByClips:
+  - {fileID: 8300000, guid: ef5bfc5236f484e4b8f002be717e2a36, type: 3}
+  - {fileID: 8300000, guid: 5cff1177ba49a4ae5baf1d35af78a11b, type: 3}
+  - {fileID: 8300000, guid: df9e5a90a55724debb0318d8074b0c9a, type: 3}
   passByFadeTime: 0.25
   passByPitch:
     Min: 0.9
