@@ -15,11 +15,9 @@ namespace FuR.AmbientTraffic
 public class AmbientTraffic : MonoBehaviour
 {
     [Header("Lanes")]
-    [Tooltip("TASK 19b: ONE lane per side, on the pack road's outer lane pair (SM_Floor_Road_14 " +
-        "at the exact 1.36 family scale: outer lanes span |x| 3.4-6.8, centers 5.1). US " +
-        "right-hand traffic: LEFT lane oncoming/down (-z), RIGHT lane with-player/up (+z). The " +
-        "middle lane pair (|x| <= 3.4) is the gameplay area -- never spawn traffic there. Each " +
-        "lane auto-fills bumper-to-bumper (no carCount).")]
+    [Tooltip("One lane per side. Position each lane's |x| so traffic sits clear of wherever your " +
+        "gameplay happens; the middle is typically left open for the player. Each lane auto-fills " +
+        "bumper-to-bumper (no carCount).")]
     public TrafficLane[] lanes = new TrafficLane[]
     {
         new TrafficLane { laneX = 5.1f, rightSide = true,  crawlSpeed = 6f },
@@ -118,20 +116,19 @@ public class AmbientTraffic : MonoBehaviour
     [Tooltip("Optional anchor the recycling window follows. Leave empty to use Camera.main; the " +
         "window (and audio listener distance) track this transform's z.")]
     public Transform windowAnchor;
-    [Tooltip("Must reach the fog-opaque distance (~280 with exp2 fog 0.006, far clip 400), or the " +
-        "jam visibly 'ends' at the window edge. The window is camera-anchored, so it follows the " +
-        "end-run (incl. 10x fast-forward); because the player is always faster than the crawl, " +
-        "cars drift off the rear edge and are recycled to the front to keep the belt full.")]
+    [Tooltip("The window follows the anchor; make windowAhead reach as far as the camera can see " +
+        "so the jam doesn't visibly end at the window edge. Cars that fall off the rear edge " +
+        "recycle to the front to keep the belt full.")]
     public float windowAhead = 280f;
     public float windowBehind = 40f;
 
     [Header("Move SFX")]
-    [Tooltip("Steady, low, loopable ~1.5s engine/tyre-roll beds (Car_Move_*), one picked at " +
-        "random per car (private RNG, so seeded gameplay stays deterministic). These are NOT " +
-        "whoosh one-shots: each car's source LOOPS and its volume is faded in when the car starts " +
-        "creeping and out when it stops, so the sound plays for exactly as long as the car is " +
-        "moving. A stopped car in the jam is silent even right beside the character; only a car " +
-        "actually creeping is heard (Richard).")]
+    [Tooltip("Steady, low, loopable ~1.5s engine/tyre-roll beds, one picked at random per car " +
+        "(private RNG, so seeded gameplay stays deterministic). These are NOT whoosh one-shots: " +
+        "each car's source LOOPS and its volume is faded in when the car starts creeping and out " +
+        "when it stops, so the sound plays for exactly as long as the car is moving. A stopped " +
+        "car in the jam is silent even right next to the listener; only a car actually creeping " +
+        "is heard.")]
     public AudioClip[] passByClips;
     [Tooltip("Fade in/out time (seconds) for a car's move loop as it starts/stops creeping. Short " +
         "= snappy; longer = gentler swell. The whole clip is constant-volume, so this envelope is " +
@@ -142,7 +139,7 @@ public class AmbientTraffic : MonoBehaviour
         "per-car variation around 1.")]
     [MinMaxRange(0.6f, 1.5f)]
     public MinMaxRange passByPitch = new MinMaxRange(0.9f, 1.1f);
-    [Tooltip("Richard: keep these as background ambience -- higher read as annoying/foreground.")]
+    [Tooltip("Keep these as background ambience -- higher reads as annoying/foreground.")]
     [Range(0f, 1f)] public float passByVolume = 0.29f;
     [Tooltip("Linear rolloff. The listener is on the camera (~10-13 units from a passing car), " +
         "so min must cover that or every car sounds pre-attenuated. maxDistance also gates which " +
@@ -174,7 +171,7 @@ public class AmbientTraffic : MonoBehaviour
         public float MoveRemaining; // world-units of forward progress still owed this move (go phase)
         public float StopTimer;     // seconds left in the current stop phase
         public AudioSource PassSfx; // looping move-SFX bed; null when no clips assigned
-        public BoxCollider Col;     // death-collision box (disabled until defeat); null if unused
+        public BoxCollider Col;     // impact-collision box (disabled until TriggerImpactCollisions wakes it); null if unused
     }
 
     // One lane's cars, kept ordered by ascending world z. Order is stable except at recycle
@@ -233,9 +230,9 @@ public class AmbientTraffic : MonoBehaviour
         _tintPool.Clear();
     }
 
-    /// <summary>Richard (Task 22): the payout corridor is car-free -- despawn all ambient
-    /// traffic the moment the endline is crossed. Per-round reset is the scene reload
-    /// (this component and its spawned cars are recreated fresh each round).</summary>
+    /// <summary>Despawns all ambient traffic (e.g. when the player finishes / reaches the end of
+    /// the level). Per-round reset is the scene reload (this component and its spawned cars are
+    /// recreated fresh each round).</summary>
     public void ClearTraffic()
     {
         _cleared = true;
@@ -313,7 +310,7 @@ public class AmbientTraffic : MonoBehaviour
     }
 
     /// <summary>Combined world-space renderer bounds of a spawned car (used for both spacing and
-    /// the death-collision box). False when the prefab has no renderers.</summary>
+    /// the impact-collision box). False when the prefab has no renderers.</summary>
     bool TryMeasureBounds(GameObject go, out Bounds bounds)
     {
         bounds = default;
@@ -324,9 +321,9 @@ public class AmbientTraffic : MonoBehaviour
         return true;
     }
 
-    /// <summary>Resolves the traffic layer and makes it collide with the character's post-defeat
-    /// layer (ReplayDisabled, which the project otherwise restricts to Ground only) so the
-    /// defeated body is blocked by the cars. No-op (with a warning) if the layer is missing.</summary>
+    /// <summary>Resolves the traffic layer and, if collideWithLayerName is set, makes it collide
+    /// with that layer at runtime (e.g. to unblock an object the traffic layer otherwise ignores).
+    /// No-op (with a warning) if the traffic layer is missing.</summary>
     void SetupImpactCollisionLayers()
     {
         _trafficLayer = LayerMask.NameToLayer(trafficLayerName);
@@ -345,8 +342,8 @@ public class AmbientTraffic : MonoBehaviour
 
     /// <summary>Adds a disabled kinematic box collider sized to the car's bounds, on the traffic
     /// layer. Kinematic (not static) because the car moves every frame -- a bare static collider
-    /// moving would force PhysX to rebuild its static tree constantly. Stays disabled until a
-    /// defeat wakes it.</summary>
+    /// moving would force PhysX to rebuild its static tree constantly. Stays disabled until
+    /// TriggerImpactCollisions wakes it.</summary>
     BoxCollider AddImpactCollider(GameObject go, Bounds wb)
     {
         var t = go.transform;
@@ -446,7 +443,7 @@ public class AmbientTraffic : MonoBehaviour
 
     void Update()
     {
-        if (_cleared) return; // endline passed -- cars despawned, nothing to move (defeat keeps moving)
+        if (_cleared) return; // cleared -- cars despawned, nothing to move
 
         float minZ = _anchor.position.z - windowBehind;
         float maxZ = _anchor.position.z + windowAhead;
