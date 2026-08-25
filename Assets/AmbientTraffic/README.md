@@ -14,7 +14,7 @@ belt full. No colliders during normal play, deterministic (private RNG).
    `Demo/AmbientTrafficDemo` scene for a working setup.
 
 ## Author
-Richard Fu
+Richard Fu (fuR Gaming)
 
 ## License
 See LICENSE.md.

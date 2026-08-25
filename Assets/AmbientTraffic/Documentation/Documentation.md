@@ -109,7 +109,7 @@ Each `TrafficLane` entry has its own fields:
 
 | Field | Meaning |
 |---|---|
-| `passByClips` | Steady, low, loopable ~1.5s engine/tyre-roll beds, one picked at random per car. These are not whoosh one-shots — each car's source loops, fading its volume in when the car starts creeping and out when it stops, so the sound plays for exactly as long as the car is moving. A stopped car in the jam is silent even right next to the listener; only a car actually creeping is heard. |
+| `passByClips` | Steady, low, loopable engine/tyre-roll beds, one picked at random per car. These are not whoosh one-shots — each car's source loops, fading its volume in when the car starts creeping and out when it stops, so the sound plays for exactly as long as the car is moving. A stopped car in the jam is silent even right next to the listener; only a car actually creeping is heard. |
 | `passByFadeTime` | Fade in/out time in seconds for a car's move loop as it starts/stops creeping. Short values feel snappy; longer values give a gentler swell. The clip itself is constant-volume, so this envelope is the only volume shaping. |
 | `passByPitch` (min/max) | Random pitch per car so shared clips don't all sound identical. Pitch is already low in the clips themselves (low-speed engine, not a highway whoosh) — this only adds mild per-car variation around 1. |
 | `passByVolume` | Peak playback volume. Keep these as background ambience — higher reads as annoying/foreground. |

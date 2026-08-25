@@ -39,13 +39,13 @@ public class AmbientTraffic : MonoBehaviour
     [Tooltip("Braking distance -- how close a car's nose gets to the tail of the car ahead before " +
         "it has to brake to a stop (world units). Deliberately MUCH smaller than gapDesired: a car " +
         "sitting at the packed spacing (gapDesired) still has (gapDesired - brakeGap) of headroom to " +
-        "creep at crawl, so the line behaves as a moving conveyor instead of a gridlock. This is the " +
-        "fix for the oncoming lane freezing -- keep it small (a fraction of gapDesired).")]
+        "creep at crawl, so the line behaves as a moving conveyor instead of a gridlock. Keep it " +
+        "small (a fraction of gapDesired) so a lane keeps conveying instead of freezing.")]
     public float brakeGap = 0.6f;
     [Tooltip("How far a car travels each time it moves, in MULTIPLES OF ITS OWN LENGTH (a random " +
         "pick per move, private RNG). This is DISTANCE, not time: the budget is consumed only by " +
         "actual forward progress, so a car blocked bumper-to-bumper still travels its full pull-up " +
-        "once the gap ahead finally opens -- no more tiny sliver-lurches. 1.0 = exactly one car " +
+        "once the gap ahead finally opens, instead of many tiny lurches. 1.0 = exactly one car " +
         "length. Bigger = longer surges between stops (more flowing); smaller = shorter shuffles.")]
     [MinMaxRange(0.2f, 4f)]
     public MinMaxRange moveDistance = new MinMaxRange(0.8f, 2.0f);
@@ -94,7 +94,7 @@ public class AmbientTraffic : MonoBehaviour
         "physics cost); call TriggerImpactCollisions(target, duration) to wake box colliders on the " +
         "cars near a target for a few seconds (e.g. a death/impact). Needs the traffic layer to exist " +
         "and to collide with your object's layer in the physics matrix.")]
-    public bool impactCollision = true;
+    public bool impactCollision = false;
     [Tooltip("Cars within this radius of the impact target get their collider enabled (refreshed " +
         "each frame, so it follows the target).")]
     public float colliderWakeRadius = 8f;
@@ -123,7 +123,7 @@ public class AmbientTraffic : MonoBehaviour
     public float windowBehind = 40f;
 
     [Header("Move SFX")]
-    [Tooltip("Steady, low, loopable ~1.5s engine/tyre-roll beds, one picked at random per car " +
+    [Tooltip("Steady, low, loopable engine/tyre-roll beds, one picked at random per car " +
         "(private RNG, so seeded gameplay stays deterministic). These are NOT whoosh one-shots: " +
         "each car's source LOOPS and its volume is faded in when the car starts creeping and out " +
         "when it stops, so the sound plays for exactly as long as the car is moving. A stopped " +
@@ -444,6 +444,7 @@ public class AmbientTraffic : MonoBehaviour
     void Update()
     {
         if (_cleared) return; // cleared -- cars despawned, nothing to move
+        if (_anchor == null) _anchor = transform; // reacquire if a runtime windowAnchor was destroyed
 
         float minZ = _anchor.position.z - windowBehind;
         float maxZ = _anchor.position.z + windowAhead;
